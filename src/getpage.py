@@ -1,5 +1,25 @@
 #!/usr/bin/env python
-#-*- coding:utf-8 -*-
+""" getpage - A Program to fetch a webpage and save it in MIME-HTML (RFC 2557) format.
+
+    MIME-HTML makes it possible to save a webpage complete with all needed ressources
+    to render it, including stylesheets, images or scripts right into a single file.
+ 
+"""
+"""
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
 
 import urllib2
 import sys
@@ -100,6 +120,12 @@ class PageGetter():
 
         parser.add_option("-f", "--file", dest="filename",
                           help="write report to FILE", metavar="FILE")
+        parser.add_option("-d", "--debug",
+                          action="store_false", dest="verbose", default=True,
+                          help="print debug and verbose status messages to stdout")
+        parser.add_option("-v", "--verbose",
+                          action="store_false", dest="verbose", default=True,
+                          help="print verbose status messages to stdout")
         parser.add_option("-q", "--quiet",
                           action="store_false", dest="verbose", default=True,
                           help="don't print status messages to stdout")
