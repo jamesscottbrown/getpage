@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-""" getpage - A Program to fetch a webpage and save it in MIME-HTML (RFC 2557) format.
+""" getpage - A Program to fetch a webpage and save it in a single file in MIME-HTML (RFC 2557) format.
 
     MIME-HTML makes it possible to save a webpage complete with all needed ressources
-    to render it, including stylesheets, images or scripts right into a single file.
- 
+    to render, including stylesheets, images or scripts right into a single file.
+
 """
 """
     This program is free software: you can redistribute it and/or modify
@@ -33,35 +33,55 @@ from optparse import OptionParser
 
 
 class PageGetter():
+    """ Get a webpage, and save it in a single file  the URL of a HTML Page. Returns a MIME-HTML representation of that page in a single File.
+
+            There are a number of document formats
+            consisting of a root resource and a number of distinct
+            subsidiary resources referenced by URIs within that root resource.
+
+            There is an obvious need to be able to save such multi-resource
+            documents in a single file.
+
+    """
+
     _title = ''
     _msg = None
+    _urls = {}
 
     def __init__(self):
 
-        self.read_parameters()
+        self._read_parameters()
 
         self._msg = MIMEMultipart('related')
         self._msg.preamble = 'This is a multi-part message in MIME format.\n'
 
 
     def add_html(self, url):
+        """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
 
+            If the HTML page itself links to images, scripts or stylesheet it calls the matching
+            encapsulation Methods for them recursivly
+
+        """
+        self._base_url=url
         response = urllib2.urlopen(url)
         html = response.read()
-
-        htmltxt =MIMEText(quopri.encodestring(html), 'html')
+        print html
+        htmltxt = MIMEText(quopri.encodestring(html), 'html')
         htmltxt.add_header('Content-Transfer-Encoding', 'quoted-printable')
         htmltxt.add_header('Content-Location', url)
 
         self._msg.attach(htmltxt)
 
         soup = BeautifulSoup(html)
-        self._title = soup.head.title.string
+        self._title = quopri.encodestring(soup.head.title.string)
 
         images = soup.findAll('img')
         for img in images:
-            #self.add_image(img)
-            pass
+            url = self._base_url + img['src']
+            if not url in self._urls:
+                self._urls[url] = url
+                self._add_image(url)
 
         links = soup.findAll('link', type='text/css')
         for link in links:
@@ -78,7 +98,13 @@ class PageGetter():
             #self.add_iframe(iframe)
             pass
 
-    def add_css(self, url):
+    def _add_css(self, url):
+        """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
+
+            If the HTML page itself links to images, scripts or stylesheet it calls the matching
+            encapsulation Methods for them recursivly
+
+        """
 
         response = urllib2.urlopen(url)
         html = response.read()
@@ -87,7 +113,42 @@ class PageGetter():
         htmltxt.add_header('Content-Transfer-Encoding', 'quoted-printable')
         htmltxt.add_header('Content-Location', url)
 
-    def add_image(self, url):
+    def _add_image(self, url):
+        """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
+
+            If the HTML page itself links to images, scripts or stylesheet it calls the matching
+            encapsulation Methods for them recursivly
+
+        """
+
+        response = urllib2.urlopen(url)
+        img = response.read()
+
+        # TODO: Expand to more MIME subtypes
+        if url.lower().endswith('jpg'):
+            mime_type='jpeg'
+        elif url.lower().endswith('png'):
+            mime_type='png'
+        elif url.lower().endswith('gif'):
+            mime_type='gif'
+        else:
+            image_type = 'test'
+
+
+        html_image =MIMEImage(img, mime_type)
+        html_image.add_header('Content-Location', url)
+
+
+        self._msg.attach(html_image)
+
+
+    def _add_script(self, url):
+        """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
+
+            If the HTML page itself links to images, scripts or stylesheet it calls the matching
+            encapsulation Methods for them recursivly
+
+        """
 
         response = urllib2.urlopen(url)
         html = response.read()
@@ -96,25 +157,29 @@ class PageGetter():
         htmltxt.add_header('Content-Transfer-Encoding', 'quoted-printable')
         htmltxt.add_header('Content-Location', url)
 
-    def add_script(self, url):
+    def _add_iframe(self, url):
+        """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
+
+            If the HTML page itself links to images, scripts or stylesheet it calls the matching
+            encapsulation Methods for them recursivly
+
+        """
 
         response = urllib2.urlopen(url)
         html = response.read()
 
         htmltxt =MIMEText(quopri.encodestring(html), 'html')
+
         htmltxt.add_header('Content-Transfer-Encoding', 'quoted-printable')
         htmltxt.add_header('Content-Location', url)
 
-    def add_iframe(self, url):
+    def _read_parameters(self):
+        """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
 
-        response = urllib2.urlopen(url)
-        html = response.read()
+            If the HTML page itself links to images, scripts or stylesheet it calls the matching
+            encapsulation Methods for them recursivly
 
-        htmltxt =MIMEText(quopri.encodestring(html), 'html')
-        htmltxt.add_header('Content-Transfer-Encoding', 'quoted-printable')
-        htmltxt.add_header('Content-Location', url)
-
-    def read_parameters(self):
+        """
 
         parser = OptionParser()
 
@@ -134,6 +199,12 @@ class PageGetter():
 
 
     def retrieve(self):
+        """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
+
+            If the HTML page itself links to images, scripts or stylesheet it calls the matching
+            encapsulation Methods for them recursivly
+
+        """
 
         self.add_html('http://www.python.org',)
 
