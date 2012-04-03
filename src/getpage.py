@@ -24,6 +24,7 @@
 import urllib2
 import sys
 import smtplib
+import re
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -85,18 +86,28 @@ class PageGetter():
 
         links = soup.findAll('link', type='text/css')
         for link in links:
-            #self.add_css(link['href'])
-            pass
-
-        scripts = soup.findAll('script')
-        for script in scripts:
-            #self.add_script(script)
-            pass
+            url = self._base_url + link['href']
+            if not url in self._urls:
+                self._urls[url] = url
+                self._add_css(url)
 
         iframes = soup.findAll('iframe')
         for iframe in iframes:
-            #self.add_iframe(iframe)
-            pass
+            url = iframe['src']
+            if not url in self._urls:
+                print url
+                self._urls[url] = url
+                self.add_html(url)
+
+        scripts = soup.findAll('script', type='text/javascript')
+        for script in scripts:
+            url = self._base_url + script['src']
+            print url
+            if not url in self._urls:
+                print url
+                self._urls[url] = url
+                self._add_script(url)
+
 
     def _add_css(self, url):
         """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
@@ -107,11 +118,30 @@ class PageGetter():
         """
 
         response = urllib2.urlopen(url)
-        html = response.read()
+        css = "/* Effective stylesheet produced by snapshot save */\r\n" + self._snapshot_save(response.read())
 
-        htmltxt =MIMEText(quopri.encodestring(html), 'html')
-        htmltxt.add_header('Content-Transfer-Encoding', 'quoted-printable')
-        htmltxt.add_header('Content-Location', url)
+        css_txt =MIMEText(quopri.encodestring(css), 'css')
+        css_txt.add_header('Content-Transfer-Encoding', 'quoted-printable')
+        css_txt.add_header('Content-Location', url)
+
+
+        self._msg.attach(css_txt)
+        # TODO find by regex
+        matches = re.finditer(r'@import\surl\(\.*([-":.0-9a-z/]*)\);',css)
+        results = [match.group(1) for match in matches]
+        for result in results:
+            url = self._base_url + result
+            if not url in self._urls:
+                self._urls[url] = url
+                self._add_css(self._base_url + result)
+
+        matches = re.finditer(r'background-image:\surl\(\.*([-":.0-9a-z/]*)\);',css)
+        results = [match.group(1) for match in matches]
+        for result in results:
+            url = self._base_url + result
+            if not url in self._urls:
+                self._urls[url] = url
+                self._add_image(self._base_url + result)
 
     def _add_image(self, url):
         """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
@@ -197,6 +227,61 @@ class PageGetter():
 
         (options, args) = parser.parse_args()
 
+    def _snapshot_save(self, css):
+
+        css = self.remove_comments(css)
+
+        css = re.sub('\s+',' ',css)
+        css = re.sub('}\s','}\n',css)
+
+        css2 = css
+        return(css2)
+
+    def remove_comments(self,text):
+        """ remove c-style comments.
+            text: blob of text with comments (can include newlines)
+            returns: text with comments removed
+        """
+        pattern = r"""
+                                ##  --------- COMMENT ---------
+               /\*              ##  Start of /* ... */ comment
+               [^*]*\*+         ##  Non-* followed by 1-or-more *'s
+               (                ##
+                 [^/*][^*]*\*+  ##
+               )*               ##  0-or-more things which don't start with /
+                                ##    but do end with '*'
+               /                ##  End of /* ... */ comment
+             |                  ##  -OR-  various things which aren't comments:
+               (                ##
+                                ##  ------ " ... " STRING ------
+                 "              ##  Start of " ... " string
+                 (              ##
+                   \\.          ##  Escaped char
+                 |              ##  -OR-
+                   [^"\\]       ##  Non "\ characters
+                 )*             ##
+                 "              ##  End of " ... " string
+               |                ##  -OR-
+                                ##
+                                ##  ------ ' ... ' STRING ------
+                 '              ##  Start of ' ... ' string
+                 (              ##
+                   \\.          ##  Escaped char
+                 |              ##  -OR-
+                   [^'\\]       ##  Non '\ characters
+                 )*             ##
+                 '              ##  End of ' ... ' string
+               |                ##  -OR-
+                                ##
+                                ##  ------ ANYTHING ELSE -------
+                 .              ##  Anything other char
+                 [^/"'\\]*      ##  Chars which doesn't start a comment, string
+               )                ##    or escape
+        """
+        regex = re.compile(pattern, re.VERBOSE|re.MULTILINE|re.DOTALL)
+        noncomments = [m.group(2) for m in regex.finditer(text) if m.group(2)]
+
+        return "".join(noncomments)
 
     def retrieve(self):
         """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
