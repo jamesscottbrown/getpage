@@ -31,43 +31,40 @@ from email.mime.text import MIMEText
 import quopri
 from BeautifulSoup import BeautifulSoup
 from optparse import OptionParser
-
+from urlparse import urlparse
+from urlparse import urljoin
 
 class PageGetter():
     """ Get a webpage, and save it in a single file  the URL of a HTML Page. Returns a MIME-HTML representation of that page in a single File.
+        There are a number of document formats
+        consisting of a root resource and a number of distinct
+        subsidiary resources referenced by URIs within that root resource.
 
-            There are a number of document formats
-            consisting of a root resource and a number of distinct
-            subsidiary resources referenced by URIs within that root resource.
-
-            There is an obvious need to be able to save such multi-resource
-            documents in a single file.
-
+        There is an obvious need to be able to save such multi-resource
+        documents in a single file.
     """
 
     _title = ''
     _msg = None
     _urls = {}
+    _options=[]
+    _args=[]
 
     def __init__(self):
-
         self._read_parameters()
 
         self._msg = MIMEMultipart('related')
         self._msg.preamble = 'This is a multi-part message in MIME format.\n'
-
 
     def add_html(self, url):
         """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
 
             If the HTML page itself links to images, scripts or stylesheet it calls the matching
             encapsulation Methods for them recursivly
-
         """
         self._base_url=url
         response = urllib2.urlopen(url)
         html = response.read()
-        print html
         htmltxt = MIMEText(quopri.encodestring(html), 'html')
         htmltxt.add_header('Content-Transfer-Encoding', 'quoted-printable')
         htmltxt.add_header('Content-Location', url)
@@ -75,25 +72,26 @@ class PageGetter():
         self._msg.attach(htmltxt)
 
         soup = BeautifulSoup(html)
-        self._title = quopri.encodestring(soup.head.title.string)
+        if self._title == '':
+            self._title = "test" #quopri.encodestring(soup.head.title.string)
 
         images = soup.findAll('img')
         for img in images:
-            url = self._base_url + img['src']
+            url = urljoin(self._base_url, img['src'])
             if not url in self._urls:
                 self._urls[url] = url
                 self._add_image(url)
 
         links = soup.findAll('link', type='text/css')
         for link in links:
-            url = self._base_url + link['href']
+            url = urljoin(self._base_url, link['href'])
             if not url in self._urls:
                 self._urls[url] = url
                 self._add_css(url)
 
         iframes = soup.findAll('iframe')
         for iframe in iframes:
-            url = iframe['src']
+            url =  urljoin(self._base_url, iframe['src'])
             if not url in self._urls:
                 print url
                 self._urls[url] = url
@@ -101,13 +99,15 @@ class PageGetter():
 
         scripts = soup.findAll('script', type='text/javascript')
         for script in scripts:
-            url = self._base_url + script['src']
-            print url
-            if not url in self._urls:
+            print self._base_url
+            if 'src' in script.attrs: # ignore inline scripts
+                print script['src']
+                url = urljoin(self._base_url, script['src'])
                 print url
-                self._urls[url] = url
-                self._add_script(url)
-
+                if not url in self._urls:
+                    print url
+                    self._urls[url] = url
+                    self._add_script(url)
 
     def _add_css(self, url):
         """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
@@ -150,33 +150,30 @@ class PageGetter():
             encapsulation Methods for them recursivly
 
         """
+        print url
+        try:
+            response = urllib2.urlopen(url)
+            mime_type = response.info().gettype()
+            img = response.read()
 
-        response = urllib2.urlopen(url)
-        img = response.read()
-
-        # TODO: Expand to more MIME subtypes
-        if url.lower().endswith('jpg'):
-            mime_type='jpeg'
-        elif url.lower().endswith('png'):
-            mime_type='png'
-        elif url.lower().endswith('gif'):
-            mime_type='gif'
-        else:
-            image_type = 'test'
+            html_image =MIMEImage(img, mime_type)
+            html_image.add_header('Content-Location', url)
 
 
-        html_image =MIMEImage(img, mime_type)
-        html_image.add_header('Content-Location', url)
+            self._msg.attach(html_image)
 
-
-        self._msg.attach(html_image)
-
+        except urllib2.HTTPError, err:
+            if err.code == 404:
+                print "Page not found!"
+            elif err.code == 403:
+                print "Access denied!"
+            else:
+                print "Something happened! Error code", err.code
+        except urllib2.URLError, err:
+            print "Some other error happened:", err.reason
 
     def _add_script(self, url):
-        """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
-
-            If the HTML page itself links to images, scripts or stylesheet it calls the matching
-            encapsulation Methods for them recursivly
+        """ Takes the URL of a Javascript. Adds an quoted-Printable version of the script to th output file.
 
         """
 
@@ -188,7 +185,7 @@ class PageGetter():
         htmltxt.add_header('Content-Location', url)
 
     def _add_iframe(self, url):
-        """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
+        """ Takes the URL of an HTML Page inside an iFrame. Returns a MIME encapsulated form of the HTML Code.
 
             If the HTML page itself links to images, scripts or stylesheet it calls the matching
             encapsulation Methods for them recursivly
@@ -202,6 +199,12 @@ class PageGetter():
 
         htmltxt.add_header('Content-Transfer-Encoding', 'quoted-printable')
         htmltxt.add_header('Content-Location', url)
+    def _get_base_url(self, url):
+        pass
+        o = urlparse(url)
+        print o.scheme
+        print o.netloc
+        return o.scheme + '://' + o.netloc
 
     def _read_parameters(self):
         """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
@@ -225,10 +228,9 @@ class PageGetter():
                           action="store_false", dest="verbose", default=True,
                           help="don't print status messages to stdout")
 
-        (options, args) = parser.parse_args()
+        (self._options, self._args) = parser.parse_args()
 
     def _snapshot_save(self, css):
-
         css = self.remove_comments(css)
 
         css = re.sub('\s+',' ',css)
@@ -291,7 +293,7 @@ class PageGetter():
 
         """
 
-        self.add_html('http://www.python.org',)
+        self.add_html(self._args[0])
 
         f=open(self._title +'.mht', 'w')
         f.write('From: <Saved by getpage 0.1>\r\n')
@@ -299,7 +301,6 @@ class PageGetter():
         f.write('Date: Fri, 16 Mar 2012 11:13:53 +0100\r\n')
         f.write(self._msg.as_string())
         f.close
-
 
 if __name__ == '__main__':
     page = PageGetter()
