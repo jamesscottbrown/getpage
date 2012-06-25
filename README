@@ -1,0 +1,34 @@
+h1. getpage
+
+This command line programm solves the need for fetching a single webpage from a server and storing ist in a single file which can be viewed offline in any webbrowser, making it look at close as possible to the original page.
+
+h2. The Goal
+There is a firefox extension named "Mozilla Archive Format" by Christopher Ottley which ollows us to save a webpage to disk in a single file, and showing it afterwards while offline. It support reading and writing of two file formats:
+
+* MAF
+* MHT
+
+MAF means Mozilla Archive Format and it is a little bit smaller, because it is ZIP compressed, but as far as i know it is only supported by Mozilla. The other one is MHT (short for MIME-HTML) and beneath the Mozilla plugin, it is also supported by Microsofts Internet Explorer. Also it is very close to the standard MIME format used in e-mails.
+/getpage/ tries to mimic the output of this plugin, while being independent from the browser, as it is an commandline tool.
+
+h2. The way it works
+
+First /getpage/ fetches the HTML code of the given page and parses it, looking for 4 elements:
+
+* images
+* external CSS scripts
+* external javascript
+* iframes
+
+all those elements found are now fetched from the server too, and if they reference some other elemnts themself (as Stylesheet may reference images for example) they are also fetched. All elements are now MIME encoded and appended to the original HTML code.
+This is stored altogether in a single *.mht file, which can be viewed offline with Firefox, Internet Explorer, and maybe some other browsers
+
+h2. To Do
+
+* Programm messages
+* Logging
+* Command line Arguments
+* Tests
+* Documentation
+
+
