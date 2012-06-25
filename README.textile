@@ -28,7 +28,7 @@ h2. Usage
 
 bc. getpage [options] url
 
-for exapmple:
+for example:
 
 bc. getpage --quiet --verbose http://remline.de
 
