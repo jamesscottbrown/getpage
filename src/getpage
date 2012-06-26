@@ -21,10 +21,12 @@
 
 """
 
-import pagegetter
+from pagegetter import PageGetter
 import argparse
 
-def read_parameters():
+
+if __name__ == '__main__':
+    print "getpage 0.0.5, a non-interactive webpage downloader"
     """ Takes the URL of a HTML Page. Returns a MIME encapsulated form of the HTML Code.
 
         If the HTML page itself links to images, scripts or stylesheet it calls the matching
@@ -50,11 +52,6 @@ def read_parameters():
                       action="store_false", dest="verbose", default=True,
                       help="don't print status messages to stdout")
 
-    self._options = parser.parse_args()
-
-
-if __name__ == '__main__':
-    print "getpage 0.0.5, a non-interactive webpage downloader"
-    read_parameters()
-    page = PageGetter()
+    options = parser.parse_args()
+    page = PageGetter(options)
     page.retrieve()

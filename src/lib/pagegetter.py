@@ -47,10 +47,12 @@ class PageGetter():
     _msg = None
     _urls = {}
     _options=[]
-    _args=[]
+    _args={}
 
-    def __init__(self):
 
+    def __init__(self, options):
+        print options()["url"]
+        self._args.update(**options)
         self._msg = MIMEMultipart('related')
         self._msg.preamble = 'This is a multi-part message in MIME format.\n'
 
@@ -267,7 +269,7 @@ class PageGetter():
 
         """
 
-        self.add_html(self._args[0])
+        self.add_html(self._args.url)
 
         f=open(self._title +'.mht', 'w')
         f.write('From: <Saved by getpage 0.1>\r\n')
