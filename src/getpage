@@ -29,6 +29,7 @@ import re
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import email.utils
 import quopri
 from BeautifulSoup import BeautifulSoup
 import urlparse
@@ -273,7 +274,7 @@ class GetPage():
         f=open(self._title +'.mht', 'w')
         f.write('From: <Saved by getpage 0.1>\r\n')
         f.write('Subject: ' + self._title + '\r\n')
-        f.write('Date: Fri, 16 Mar 2012 11:13:53 +0100\r\n')
+        f.write('Date: ' + email.utils.formatdate() + '\r\n')
         f.write(self._msg.as_string())
         f.close
 
